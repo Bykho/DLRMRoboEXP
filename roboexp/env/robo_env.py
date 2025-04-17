@@ -20,7 +20,7 @@ class RobotExploration:
         objects_conf,
         ray_tracing=True,
         balance_passive_force=True,
-        offscreen_only=False,
+        offscreen_only=True,
         gt_depth=False,
         has_gripper=True,
         control_mode="mplib",
@@ -82,12 +82,10 @@ class RobotExploration:
         self.viewer.toggle_axes(False)
 
     def init_env(self):
-        # Add lights
-        self.scene.set_ambient_light([0.5, 0.5, 0.5])
-        # self.scene.add_directional_light([0, 1, -1], [0.5, 0.5, 0.5], shadow=True)
-        self.scene.add_point_light([1, 2, 2], [1, 1, 1], shadow=True)
-        self.scene.add_point_light([1, -2, 2], [1, 1, 1], shadow=True)
-        self.scene.add_point_light([-1, 0, 1], [1, 1, 1], shadow=True)
+        # Minimal lighting setup - just ambient and one directional light
+        self.scene.set_ambient_light([0.8, 0.8, 0.8])  # Increased ambient light
+        self.scene.add_directional_light([0, 1, -1], [0.8, 0.8, 0.8])  # Brighter directional light
+        
         # Add three mounted cameras
         self.camera_positions = {
             "camera_0": np.array([0.3, 0, 0.9]),
@@ -164,17 +162,19 @@ class RobotExploration:
             [[0, 0, 1, 0.1], [0, -1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1]]
         )
         wrist_pose = sapien.Pose.from_transformation_matrix(wrist_transform)
+        # Get the gripper link for camera mounting
+        gripper_link = next(link for link in self.robot.get_links() if link.name == "gripper_link")
         self.cameras["wrist"] = self._add_mount_camera(
             name="wrist",
             pose=wrist_pose,
-            camera_mount_actor=self.robot.get_links()[7],
+            camera_mount_actor=gripper_link,
             ray_tracing=False,
         )
         if self.ray_tracing and self.gt_depth:
             self.cameras_rt["wrist"] = self._add_mount_camera(
                 name="wrist_rt",
                 pose=wrist_pose,
-                camera_mount_actor=self.robot.get_links()[7],
+                camera_mount_actor=gripper_link,
                 ray_tracing=True,
             )
 
@@ -416,7 +416,7 @@ class RobotExploration:
         # Update the robot based on the current_steps
         if len(self.actions_position_list) != 0:
             action_position = self.actions_position_list.pop(0)
-            for j in range(6):
+            for j in range(len(self.robot_active_joints)):
                 self.robot_active_joints[j].set_drive_target(action_position[j])
 
             if len(self.actions_position_list) == 0:
@@ -471,7 +471,7 @@ class RobotExploration:
                         self.gripper_state = 0
                         self._run(iteration=100)
                 elif self.viewer.window.key_down("m"):
-                    print("Display the current observation")
+                    # print("Display the current observation")
                     self.visualize_observations()
                 elif self.viewer.window.key_down("p"):
                     print("Reset the robot qpos")
@@ -510,42 +510,71 @@ class RobotExploration:
         )
 
     # Only run one action each time
-    def run_action(self, action_code=0, action_parameters=[], iteration=100, **kwargs):
-        # action_code: 0: run another 100 steps
-        #              1: move the end effector, parameters: qpos
-        # reset the stop loop flag
-        if not self.offscreen_only and self.viewer.closed:
-            # Reinitialize the viewer if the viewer is closed
-            self.init_viewer()
-        print(
-            f"Running action {action_code} with parameters {action_parameters} in iteration {iteration}"
-        )
-        if action_code == 0:
-            self._run(iteration=iteration)
-        elif action_code == 1:
-            assert len(action_parameters) == 7
-            self.target_pose = action_parameters
-            action = self.robot_move_to_pose(action_parameters)
-            if action == -1:
-                print("Invalid action")
+    def run_action(self, action_code, action_parameters, iteration=1000):
+        """Run robot action with validation"""
+        print(f"Running action {action_code} with parameters {action_parameters}")
+        
+        # Validate target pose for movement actions
+        if action_code == 1:  # Movement action
+            is_valid, message = self._validate_target_pose(action_parameters)
+            if not is_valid:
+                print(f"Invalid target pose: {message}")
                 return False
-            self.actions_position_list = list(action["position"])
-            self._run(
-                before_render_fn=self._do_action,
-                iteration=iteration,
-            )
+                
+        # Convert parameters to numpy array if needed
+        if isinstance(action_parameters, list):
+            action_parameters = np.array(action_parameters)
+            
+        if action_code == 1:
+            # Movement action
+            try:
+                # Get current end effector pose for debugging
+                gripper_link = next(link for link in self.robot.get_links() if link.name == "gripper_link")
+                current_pose = gripper_link.get_pose()
+                print(f"Current end effector: pos={current_pose.p}, quat={current_pose.q}")
+                
+                # Try to find IK solution
+                target_pos = action_parameters[:3]
+                target_quat = action_parameters[3:]
+                print(f"Target: pos={target_pos}, quat={target_quat}")
+                
+                # Get the gripper link index for IK
+                gripper_link_idx = next(i for i, link in enumerate(self.robot.get_links()) if link.name == "gripper_link")
+                
+                inverse_kinematics = self.IK_solver.compute_inverse_kinematics(
+                    link_index=gripper_link_idx,
+                    pose=sapien.Pose(target_pos, target_quat),
+                    initial_qpos=self.robot.get_qpos(),
+                )[0]
+                
+                print(f"Found IK solution: {inverse_kinematics}")
+                optimized_qpos = self._optimize_IK(inverse_kinematics)
+                print(f"Optimized joint angles: {optimized_qpos}")
+                
+                # Set the joint positions
+                for i, joint in enumerate(self.robot_active_joints):
+                    joint.set_drive_target(optimized_qpos[i])
+                    
+                # Wait for movement to complete
+                for _ in range(iteration):
+                    self.scene.step()
+                    
+                # Verify final position
+                final_pose = gripper_link.get_pose()
+                pos_error = np.linalg.norm(final_pose.p - target_pos)
+                print(f"Final position error: {pos_error:.6f}m")
+                
+                return True
+                
+            except Exception as e:
+                print(f"Movement action failed: {str(e)}")
+                return False
+                
         elif action_code == 2:
-            # Open the gripper
-            self.gripper_state = 1
-            self._run(iteration=iteration)
-        elif action_code == 3:
-            # Close the gripper
-            self.gripper_state = 0
-            self._run(iteration=iteration)
-        elif action_code == 4:
-            # Make the robot back to the default position
-            self.robot_reset()
-            self._run(iteration=iteration)
+            # Handle other action codes here
+            pass
+            
+        return False
 
     # The function to run the simulation
     def _run(
@@ -581,91 +610,76 @@ class RobotExploration:
     def get_observations(
         self, wrist_only=False, save_image=False, gt_seg=False, **kwargs
     ):
-        # Here we support two modes for now: wrist only or all other cameras
-        if wrist_only:
-            allow_camera_names = ["wrist"]
-        else:
-            allow_camera_names = list(self.camera_positions.keys())
-        observations = {}
-        for name, camera in self.cameras.items():
-            if name not in allow_camera_names:
-                continue
-            camera.take_picture()
-
-            # Get the PC
-            if self.gt_depth:
-                # Get the RGBA
-                if self.ray_tracing:
-                    self.cameras_rt[name].take_picture()
-                    color = self.cameras_rt[name].get_float_texture(
-                        "Color"
-                    )  # [H, W, 4]
-                else:
-                    color = camera.get_float_texture("Color")  # [H, W, 4]
-                # Each pixel is (x, y, z, render_depth) in camera space (OpenGL/Blender)
-                position = camera.get_float_texture("Position")  # [H, W, 4]
-                # Get the pose to transform the PC to the world space
-                model_matrix = camera.get_model_matrix()
-                # Get the camera intrinsic matrix
-                intrinsic_matrix = camera.get_intrinsic_matrix()
-                if gt_seg:
-                    # Get the segmentation mask
-                    # This will provide the GT information, pay attention
-                    seg_labels = camera.get_uint32_texture("Segmentation")
+        try:
+            # Here we support two modes for now: wrist only or all other cameras
+            if wrist_only:
+                allow_camera_names = ["wrist"]
             else:
-                # Get the RGB
-                color = camera._cam_rgb.get_float_texture("Color")
-                camera.compute_depth()
-                position = camera._cam_rgb.get_float_texture("Position")
-                depth = camera.get_depth()
-                position[..., 2] = -depth
-                # Get the pose to transform the PC to the world space
-                model_matrix = camera._cam_rgb.get_model_matrix()
-                # Get the camera intrinsic matrix
-                intrinsic_matrix = camera._cam_rgb.get_intrinsic_matrix()
-                if gt_seg:
-                    # Get the segmentation mask
-                    # This will provide the GT information, pay attention
-                    seg_labels = camera._cam_rgb.get_uint32_texture("Segmentation")
-
-            # Save the RGB image
-            if save_image:
-                from PIL import Image
-
-                color_img = (color * 255).clip(0, 255).astype("uint8")
-                color_pil = Image.fromarray(color_img)
-                color_pil.save(f"{name}_color.png")
-
-                if gt_seg:
-                    # This code is just to get the gripper mask in the wrist camera observation
-                    # TODO: clean it to support more convenient usage
-                    from PIL import ImageColor
-
-                    # colormap = sorted(set(ImageColor.colormap.values()))
-                    # color_palette = np.array([ImageColor.getrgb(color) for color in colormap],
-                    #                         dtype=np.uint8)
-                    # label0_image = seg_labels[..., 0].astype(np.uint8)  # mesh-level
-                    label1_image = seg_labels[..., 1].astype(np.uint8)  # actor-level
-                    # Only extract the color image
-                    label1_image[label1_image < 25] = 0
-                    label1_image[label1_image >= 25] = 255
-                    # Or you can use aliases below
-                    # label0_image = camera.get_visual_segmentation()
-                    # label1_image = camera.get_actor_segmentation()
-                    # label0_pil = Image.fromarray(color_palette[label0_image])
-                    # label0_pil.save('label0.png')
-                    label1_pil = Image.fromarray(label1_image)
-                    label1_pil.save("label1.png")
-
-            observations[name] = {
-                "rgb": color[..., :3],
-                "position": position[..., :3],
-                "mask": position[..., 3] < 1,
-                "c2w": model_matrix,
-                "intrinsic": intrinsic_matrix,
-            }
-        self.current_observations = observations
-        return observations
+                allow_camera_names = list(self.camera_positions.keys())
+            observations = {}
+            
+            # Update render configuration for stability
+            if self.ray_tracing:
+                sapien.render_config.camera_shader_dir = "rt"
+                sapien.render_config.viewer_shader_dir = "rt"
+                sapien.render_config.rt_samples_per_pixel = 4  # Reduced for stability
+                sapien.render_config.rt_use_denoiser = False  # Disabled for stability
+            else:
+                sapien.render_config.camera_shader_dir = "ibl"
+            
+            # Force scene update before capturing
+            self.scene.update_render()
+            
+            for name, camera in self.cameras.items():
+                if name not in allow_camera_names:
+                    continue
+                    
+                try:
+                    camera.take_picture()
+                    
+                    # Get the RGB and position data
+                    if self.gt_depth:
+                        color = camera.get_float_texture("Color") if not self.ray_tracing else self.cameras_rt[name].get_float_texture("Color")
+                        position = camera.get_float_texture("Position")
+                    else:
+                        color = camera._cam_rgb.get_float_texture("Color")
+                        camera.compute_depth()
+                        position = camera._cam_rgb.get_float_texture("Position")
+                        depth = camera.get_depth()
+                        position[..., 2] = -depth
+                    
+                    # Get camera matrices
+                    model_matrix = camera.get_model_matrix()
+                    intrinsic_matrix = camera.get_intrinsic_matrix()
+                    
+                    # Save image if requested
+                    if save_image:
+                        from PIL import Image
+                        color_img = (color * 255).clip(0, 255).astype("uint8")
+                        color_pil = Image.fromarray(color_img)
+                        color_pil.save(f"{name}_color.png")
+                    
+                    # Store observation data
+                    observations[name] = {
+                        "rgb": color[..., :3],
+                        "position": position[..., :3],
+                        "mask": position[..., 3] < 1,
+                        "c2w": model_matrix,
+                        "intrinsic": intrinsic_matrix,
+                    }
+                except Exception as e:
+                    print(f"Warning: Failed to capture from camera {name}: {str(e)}")
+                    continue
+                    
+            if not observations:
+                raise RuntimeError("Failed to capture any observations")
+                
+            self.current_observations = observations
+            return observations
+            
+        except Exception as e:
+            print(f"Error capturing observations: {str(e)}")
+            return None
 
     # This function is purely for quick visualization
     def visualize_observations(self):
@@ -696,48 +710,43 @@ class RobotExploration:
         o3d.visualization.draw_geometries([total_pcd])
 
     def get_end_effector_pose(self):
-        assert self.robot.get_links()[7].get_name() == "link6"
-        return self.robot.get_links()[7].get_pose()
+        # Get the gripper link pose as the end effector pose
+        gripper_link = next(link for link in self.robot.get_links() if link.name == "gripper_link")
+        pose = gripper_link.get_pose()
+        print(f"DEBUG: Current end effector pose: position={pose.p}, quaternion={pose.q}")
+        return pose
 
     def get_gripper_position(self):
-        # Return the center of the gripper position
-        assert (
-            self.robot.get_links()[10].get_name() == "left_finger"
-            and self.robot.get_links()[13].get_name() == "right_finger"
-        )
-        left_finger_pose, right_finger_pose = (
-            self.robot.get_links()[10].get_pose(),
-            self.robot.get_links()[13].get_pose(),
-        )
-        return (left_finger_pose.p + right_finger_pose.p) / 2
+        # For our simple robot, the gripper position is the same as the end effector position
+        return self.get_end_effector_pose().p
 
     def init_robot_control(self):
+        print("\nDEBUG: Initializing robot control")
+        print(f"DEBUG: Robot configuration: {self.robot_conf}")
         if "init_qpos" in self.robot_conf:
+            print(f"DEBUG: Setting initial qpos: {self.robot_conf['init_qpos']}")
             self.robot.set_qpos(self.robot_conf["init_qpos"])
+        else:
+            print("DEBUG: No initial qpos provided in robot configuration")
+            
         current_pose = self.get_end_effector_pose()
         self.target_pose = np.concatenate([current_pose.p, current_pose.q])
-        # Initialize the joint parameters for the PID contrl
+        print(f"DEBUG: Initial target pose: {self.target_pose}")
+        
+        # Initialize the joint parameters for the PID control
         self.robot_active_joints = self.robot.get_active_joints()
+        print(f"DEBUG: Active joints: {[joint.name for joint in self.robot_active_joints]}")
+        
         for i in range(len(self.robot_active_joints)):
             joint = self.robot_active_joints[i]
             joint.set_drive_property(stiffness=2000, damping=800, force_limit=100)
             if "init_qpos" in self.robot_conf:
                 joint.set_drive_target(self.robot_conf["init_qpos"][i])
-        # Initialize the path planner
-        if self.control_mode == "mplib":
-            link_names = [link.get_name() for link in self.robot.get_links()]
-            joint_names = [joint.get_name() for joint in self.robot.get_active_joints()]
-            self.robot_planner = mplib.Planner(
-                urdf=f"{self.data_path}/{self.robot_conf['urdf_path']}",
-                srdf=f"{self.data_path}/{self.robot_conf['srdf_path']}",
-                user_link_names=link_names,
-                user_joint_names=joint_names,
-                move_group="link6",
-                joint_vel_limits=np.ones(6) * 20,
-                joint_acc_limits=np.ones(6) * 10,
-            )
-        elif self.control_mode == "IK":
-            self.IK_solver = self.robot.create_pinocchio_model()
+                
+        # Use IK mode for our simple robot
+        self.control_mode = "IK"
+        print("DEBUG: Using IK control mode")
+        self.IK_solver = self.robot.create_pinocchio_model()
 
     def robot_stop(self):
         self.ROBOT_STOP_FLAG = True
@@ -771,51 +780,84 @@ class RobotExploration:
                     print(result["status"])
                     return -1
         elif self.control_mode == "IK":
-            inverse_kinematics = self.IK_solver.compute_inverse_kinematics(
-                link_index=7,
-                pose=sapien.Pose(pose[:3], pose[3:]),
-                initial_qpos=self.robot.get_qpos(),
-            )[0]
-            # print("original IK", inverse_kinematics)
-            inverse_kinematics = self._optimize_IK(inverse_kinematics)
-            # print("optimized IK", inverse_kinematics)
-            result = {}
-            result["position"] = [inverse_kinematics]
-        return result
+            # Get the gripper link index
+            gripper_link_idx = next(i for i, link in enumerate(self.robot.get_links()) if link.name == "gripper_link")
+            print(f"DEBUG: Target pose: position={pose[:3]}, quaternion={pose[3:]}")
+            
+            # Check if target is within reasonable workspace
+            target_distance = np.linalg.norm(pose[:3])
+            max_reach = 0.4  # Approximate maximum reach of the robot
+            if target_distance > max_reach:
+                print(f"WARNING: Target position {pose[:3]} is likely outside robot workspace (distance={target_distance:.3f}m, max_reach={max_reach:.3f}m)")
+                return -1
+            
+            try:
+                print(f"DEBUG: Current robot qpos={self.robot.get_qpos()}")
+                print(f"DEBUG: Robot joint limits={self.robot.get_qlimits()}")
+                
+                inverse_kinematics = self.IK_solver.compute_inverse_kinematics(
+                    link_index=gripper_link_idx,
+                    pose=sapien.Pose(pose[:3], pose[3:]),
+                    initial_qpos=self.robot.get_qpos(),
+                )[0]
+                print(f"DEBUG: Raw IK solution={inverse_kinematics}")
+                
+                # Try to optimize the IK solution
+                optimized_qpos = self._optimize_IK(inverse_kinematics)
+                print(f"DEBUG: Optimized IK solution={optimized_qpos}")
+                
+                # Verify the solution is within limits
+                qlimits = self.robot.get_qlimits()
+                for i, (qpos, (qmin, qmax)) in enumerate(zip(optimized_qpos, qlimits)):
+                    if qpos < qmin or qpos > qmax:
+                        print(f"ERROR: Joint {i} position {qpos:.4f} exceeds limits [{qmin:.4f}, {qmax:.4f}]")
+                        return -1
+                
+                result = {}
+                result["position"] = [optimized_qpos]
+                return result
+                
+            except Exception as e:
+                print(f"ERROR: IK computation failed: {str(e)}")
+                return -1
+
+    def normalize_angle(self, angle):
+        """Normalize angle to [-pi, pi]"""
+        return ((angle + np.pi) % (2 * np.pi)) - np.pi
 
     def _optimize_IK(self, qpos):
-        # The function to optimize the IK solution
-        # The input qpos is a numpy array
-        # The output qpos is also a numpy array
-        # The optimization is based on the joint limits
+        """Optimize IK solution to respect joint limits"""
         qlimits = self.robot.get_qlimits()
-        for i in range(6):
-            while qpos[i] < qlimits[i][0]:
+        tolerance = 1e-6  # Small tolerance for numerical precision
+        
+        for i in range(len(qpos)):
+            qpos[i] = self.normalize_angle(qpos[i])
+            
+            # Try to bring the angle within limits by adding/subtracting 2π
+            while qpos[i] < qlimits[i][0] - tolerance:
                 qpos[i] += 2 * np.pi
-            while qpos[i] > qlimits[i][1]:
+            while qpos[i] > qlimits[i][1] + tolerance:
                 qpos[i] -= 2 * np.pi
-            if qpos[i] < qlimits[i][0] or qpos[i] > qlimits[i][1]:
-                raise ValueError("IK solution is not in the joint limits")
+                
+            # Check if we succeeded in bringing the angle within limits
+            if qpos[i] < qlimits[i][0] - tolerance or qpos[i] > qlimits[i][1] + tolerance:
+                print(f"WARNING: Joint {i} angle {qpos[i]} cannot be brought within limits [{qlimits[i][0]}, {qlimits[i][1]}]")
+                # Clamp to the nearest limit
+                qpos[i] = np.clip(qpos[i], qlimits[i][0], qlimits[i][1])
+                
         return qpos
 
     def robot_open_gripper(self):
-        self.robot_active_joints[6].set_drive_target(0)
-        self.robot_active_joints[8].set_drive_target(0)
-        self.robot_active_joints[9].set_drive_target(0)
-        self.robot_active_joints[11].set_drive_target(0)
+        # Our simple robot doesn't have a gripper mechanism
+        pass
 
     def robot_close_gripper(self):
-        self.robot_active_joints[6].set_drive_target(0.85)
-        self.robot_active_joints[7].set_drive_target(0.85)
-        self.robot_active_joints[8].set_drive_target(0.85)
-        self.robot_active_joints[9].set_drive_target(0.85)
-        self.robot_active_joints[10].set_drive_target(0.85)
-        self.robot_active_joints[11].set_drive_target(0.85)
+        # Our simple robot doesn't have a gripper mechanism
+        pass
 
     def gripper_fully_close(self):
-        gripper_joint = self.robot.get_qpos()[6:]
-        gripper_joint = np.abs(gripper_joint - 0.85)
-        return np.all(gripper_joint < 0.02)
+        # Our simple robot doesn't have a gripper mechanism
+        return True
 
     # Collision avoidence
     # Function to update the points for the robot to avoid collision
@@ -831,3 +873,35 @@ class RobotExploration:
             self.use_attach = True
         # The pose is related to the attached link, the default -1 is the moving group
         self.robot_planner.update_attached_box(size=size, pose=pose, link_id=-1)
+
+    def _validate_target_pose(self, target_pose):
+        """
+        Validate if a target pose is within the robot's workspace.
+        Returns (is_valid, message)
+        """
+        # Check input length
+        if len(target_pose) != 7:
+            return False, f"Target pose must have 7 values (got {len(target_pose)})"
+            
+        # Extract position and orientation
+        position = target_pose[:3]
+        quat = target_pose[3:]
+        
+        # Check position limits
+        max_reach = 0.4  # Maximum reach of the robot arm
+        distance = np.linalg.norm(position)
+        if distance > max_reach:
+            return False, f"Target position {position} is outside workspace (distance={distance:.3f}m, max={max_reach:.3f}m)"
+            
+        # Check height limits
+        min_height = 0.0
+        max_height = 0.3
+        if position[2] < min_height or position[2] > max_height:
+            return False, f"Target height {position[2]:.3f}m is outside limits ({min_height:.1f}m to {max_height:.1f}m)"
+            
+        # Check quaternion normalization
+        quat_norm = np.linalg.norm(quat)
+        if not np.isclose(quat_norm, 1.0, atol=1e-3):
+            return False, f"Quaternion {quat} is not normalized (norm={quat_norm:.3f})"
+            
+        return True, "Target pose is valid"

@@ -1,53 +1,121 @@
 from roboexp import (
-    RobotExplorationReal,
+    RobotExploration,
     RoboMemory,
     RoboPercept,
-    RoboActReal,
+    RoboAct,
     RoboDecision,
 )
 from datetime import datetime
 import os
+import json
+import sapien
+import numpy as np
+import cv2
 
+# Set environment variables for NVIDIA Vulkan rendering
+os.environ["SAPIEN_HEADLESS"] = "1"
+os.environ["VK_ICD_FILENAMES"] = "/etc/vulkan/icd.d/nvidia_icd.json"
+os.environ["__NV_PRIME_RENDER_OFFLOAD"] = "1"
+os.environ["__GLX_VENDOR_LIBRARY_NAME"] = "nvidia"
 
-def explore(robo_decision, robo_act):
-    # Used to test the exploration with the saved observations
-    robo_act.get_observations_update_memory(update_scene_graph=True, visualize=False)
-    # Test the robo_decision module
-    robo_decision.update_action_list()
-    while robo_decision.is_done() == False:
-        action = robo_decision.get_action()
-        print(action)
-        if action[1] == "open_close":
-            robo_act.skill_open_close(action[0], visualize=False)
-        elif "pick" in action[1]:
-            robo_act.skill_pick(action[0], action[1], visualize=False)
-            if action[1] == "pick_away":
-                update_scene_graph = True
-                scene_graph_option = {
-                    "type": "pick_away",
-                    "node": action[0],
-                }
-                robo_act.get_observations_update_memory(
-                    update_scene_graph=update_scene_graph,
-                    scene_graph_option=scene_graph_option,
-                    visualize=False,
+# Make sure we're using the virtual display
+if "DISPLAY" not in os.environ:
+    os.environ["DISPLAY"] = ":99"
+
+def save_frame(frame, frame_dir, frame_num):
+    """Save a frame as an image."""
+    if not os.path.exists(frame_dir):
+        os.makedirs(frame_dir)
+    frame_path = os.path.join(frame_dir, f"frame_{frame_num:06d}.png")
+    # Convert from RGB to BGR for OpenCV
+    frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+    cv2.imwrite(frame_path, frame_bgr)
+
+def explore(robo_decision, robo_act, frame_dir):
+    """Test exploration with saved observations"""
+    frame_num = 0
+    
+    # Define a sequence of safe poses to test
+    test_poses = [
+        # Home position
+        np.array([0.2, 0.0, 0.15, 1.0, 0.0, 0.0, 0.0]),
+        # Slightly to the left
+        np.array([0.2, 0.1, 0.15, 1.0, 0.0, 0.0, 0.0]),
+        # Slightly to the right
+        np.array([0.2, -0.1, 0.15, 1.0, 0.0, 0.0, 0.0]),
+    ]
+    
+    for pose in test_poses:
+        try:
+            print(f"\nTesting pose: {pose}")
+            success = robo_act.robo_exp.run_action(
+                action_code=1,
+                action_parameters=pose,
+                iteration=1000
+            )
+            
+            if not success:
+                print("Movement failed, skipping observation")
+                continue
+                
+            # Try to get observations
+            try:
+                obs = robo_act.get_observations_update_memory(
+                    update_scene_graph=True,
+                    visualize=True
                 )
-                robo_decision.update_action_list()
-            elif action[1] == "pick_back":
-                update_scene_graph = True
-                scene_graph_option = {
-                    "type": "pick_back",
-                    "node": action[0],
-                }
-                robo_act.get_observations_update_memory(
-                    update_scene_graph=update_scene_graph,
-                    scene_graph_option=scene_graph_option,
-                    visualize=False,
-                )
-
+                
+                if obs is not None and 'rgb' in obs:
+                    print("Successfully captured observation")
+                    # Save the frame if directory is provided
+                    if frame_dir:
+                        save_frame(obs['rgb'], frame_dir, frame_num)
+                        frame_num += 1
+                        
+                    # Process the observation with robo_decision
+                    action = robo_decision.get_action(obs)
+                    print(f"Decided action: {action}")
+                    
+                    # Execute the decided action
+                    if action["action"] == "open_close":
+                        robo_act.open_close_gripper()
+                    elif action["action"] == "pick":
+                        robo_act.pick_object(action["target_pos"])
+                else:
+                    print("Failed to get valid observation data")
+                    
+            except Exception as e:
+                print(f"Error during observation capture: {str(e)}")
+                continue
+                
+        except Exception as e:
+            print(f"Error during pose testing: {str(e)}")
+            continue
+            
+    print("\nExploration sequence completed")
 
 def run(base_dir, REPLAY_FLAG=False):
-    robo_exp = RobotExplorationReal(gripper_length=0.285, REPLAY_FLAG=REPLAY_FLAG)
+    # Load simulation configuration
+    with open("config/simulation_config.json", "r") as f:
+        sim_config = json.load(f)
+    
+    # Initialize the robot in simulation
+    # Remove conflicting environment variables
+    if 'LIBGL_ALWAYS_INDIRECT' in os.environ:
+        del os.environ['LIBGL_ALWAYS_INDIRECT']
+    
+    robo_exp = RobotExploration(
+        data_path=sim_config["data_path"],
+        robot_conf=sim_config["robot_conf"],
+        objects_conf=sim_config["objects_conf"],
+        ray_tracing=True,
+        balance_passive_force=True,
+        offscreen_only=True,
+        gt_depth=False,
+        has_gripper=False,  # Disable gripper constraints since we have a simple gripper
+        control_mode="mplib",
+    )
+
     # Initialize the memory module
     robo_memory = RoboMemory(
         lower_bound=[0, -0.8, -1],
@@ -80,7 +148,7 @@ def run(base_dir, REPLAY_FLAG=False):
     # Initialize the perception module
     robo_percept = RoboPercept(grounding_dict=grounding_dict, lazy_loading=False)
     # Initialize the action module
-    robo_act = RoboActReal(
+    robo_act = RoboAct(
         robo_exp,
         robo_percept,
         robo_memory,
@@ -91,7 +159,9 @@ def run(base_dir, REPLAY_FLAG=False):
     # Initialize the decision module
     robo_decision = RoboDecision(robo_memory, base_dir, REPLAY_FLAG=REPLAY_FLAG)
 
-    explore(robo_decision, robo_act)
+    # Create frames directory
+    frame_dir = os.path.join(base_dir, "frames")
+    explore(robo_decision, robo_act, frame_dir)
 
 
 if __name__ == "__main__":

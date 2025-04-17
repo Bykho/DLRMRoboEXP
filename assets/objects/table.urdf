@@ -1,0 +1,118 @@
+<?xml version="1.0"?>
+<robot name="table">
+    <link name="table_link">
+        <visual>
+            <geometry>
+                <box size="0.8 0.6 0.02"/>
+            </geometry>
+            <material name="brown">
+                <color rgba="0.6 0.4 0.2 1"/>
+            </material>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.8 0.6 0.02"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="5"/>
+            <inertia ixx="0.1" ixy="0" ixz="0" iyy="0.1" iyz="0" izz="0.1"/>
+        </inertial>
+    </link>
+
+    <link name="leg1">
+        <visual>
+            <geometry>
+                <cylinder radius="0.02" length="0.4"/>
+            </geometry>
+            <material name="brown"/>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="0.02" length="0.4"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="0.5"/>
+            <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01"/>
+        </inertial>
+    </link>
+
+    <joint name="table_to_leg1" type="fixed">
+        <parent link="table_link"/>
+        <child link="leg1"/>
+        <origin xyz="0.35 0.25 -0.2" rpy="0 0 0"/>
+    </joint>
+
+    <link name="leg2">
+        <visual>
+            <geometry>
+                <cylinder radius="0.02" length="0.4"/>
+            </geometry>
+            <material name="brown"/>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="0.02" length="0.4"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="0.5"/>
+            <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01"/>
+        </inertial>
+    </link>
+
+    <joint name="table_to_leg2" type="fixed">
+        <parent link="table_link"/>
+        <child link="leg2"/>
+        <origin xyz="0.35 -0.25 -0.2" rpy="0 0 0"/>
+    </joint>
+
+    <link name="leg3">
+        <visual>
+            <geometry>
+                <cylinder radius="0.02" length="0.4"/>
+            </geometry>
+            <material name="brown"/>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="0.02" length="0.4"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="0.5"/>
+            <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01"/>
+        </inertial>
+    </link>
+
+    <joint name="table_to_leg3" type="fixed">
+        <parent link="table_link"/>
+        <child link="leg3"/>
+        <origin xyz="-0.35 0.25 -0.2" rpy="0 0 0"/>
+    </joint>
+
+    <link name="leg4">
+        <visual>
+            <geometry>
+                <cylinder radius="0.02" length="0.4"/>
+            </geometry>
+            <material name="brown"/>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="0.02" length="0.4"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="0.5"/>
+            <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01"/>
+        </inertial>
+    </link>
+
+    <joint name="table_to_leg4" type="fixed">
+        <parent link="table_link"/>
+        <child link="leg4"/>
+        <origin xyz="-0.35 -0.25 -0.2" rpy="0 0 0"/>
+    </joint>
+</robot> 
