@@ -1,0 +1,19 @@
+{
+    "data_path": "assets",
+    "robot_conf": {
+        "urdf_path": "robot/simple_arm/simple_arm.urdf",
+        "srdf_path": "robot/simple_arm/simple_arm.srdf",
+        "init_pos": [0, 0, 0],
+        "init_rot": [1, 0, 0, 0],
+        "init_qpos": [0, 0]
+    },
+    "objects_conf": [
+        {
+            "name": "table",
+            "urdf_path": "objects/table.urdf",
+            "init_pos": [0.7, 0, 0.4],
+            "init_rot": [1, 0, 0, 0],
+            "fix_root_link": true
+        }
+    ]
+} 

@@ -1,9 +1,5 @@
-from segment_anything import (
-    build_sam,
-    build_sam_hq,
-    SamAutomaticMaskGenerator,
-    SamPredictor,
-)
+from segment_anything import build_sam, SamPredictor, SamAutomaticMaskGenerator
+from seginw.segment_anything.build_sam_hq import build_sam_hq
 import torch
 
 
