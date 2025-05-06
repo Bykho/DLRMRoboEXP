@@ -18,7 +18,7 @@ class RobotExploration:
         data_path,
         robot_conf,
         objects_conf,
-        ray_tracing=True,
+        ray_tracing=False,
         balance_passive_force=True,
         offscreen_only=True,
         gt_depth=False,
@@ -83,8 +83,8 @@ class RobotExploration:
 
     def init_env(self):
         # Minimal lighting setup - just ambient and one directional light
-        self.scene.set_ambient_light([0.8, 0.8, 0.8])  # Increased ambient light
-        self.scene.add_directional_light([0, 1, -1], [0.8, 0.8, 0.8])  # Brighter directional light
+        self.scene.set_ambient_light([0.6, 0.6, 0.6])  # Increased ambient light
+        #self.scene.add_directional_light([0, 1, -1], [0.8, 0.8, 0.8])  # Brighter directional light
         
         # Add three mounted cameras
         self.camera_positions = {

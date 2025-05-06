@@ -4,15 +4,16 @@ import torch
 
 
 class RoboPercept:
-    def __init__(self, grounding_dict, lazy_loading=False, device="cuda"):
+    def __init__(self, grounding_dict, lazy_loading=False, device="cuda", use_sam_hq_in_segment=True):
         # When lazy loading, the model will be loaded when it is used; warning: it will decrease the inference speed
         self.grounding_dict = grounding_dict
         self.lazy_loading = lazy_loading
         self.device = device
+        self.use_sam_hq_in_segment = use_sam_hq_in_segment
 
         if not self.lazy_loading:
             # Used to get the grounding masks
-            self.my_grounding_sam = MyGroundingSegment(device=self.device)
+            self.my_grounding_sam = MyGroundingSegment(device=self.device, use_sam_hq=self.use_sam_hq_in_segment)
             # Used to get the pixel-wise clip features
             self.my_dense_clip = MyDenseClip(device=self.device)
 
@@ -48,7 +49,7 @@ class RoboPercept:
         if not self.lazy_loading:
             my_grounding_sam = self.my_grounding_sam
         else:
-            my_grounding_sam = MyGroundingSegment(device=self.device)
+            my_grounding_sam = MyGroundingSegment(device=self.device, use_sam_hq=self.use_sam_hq_in_segment)
         # The example of the text can be "chair. table ."
         pred_boxes, pred_phrases, pred_masks = my_grounding_sam.run(
             img, self.grounding_dict, only_max=only_max
@@ -86,6 +87,6 @@ class RoboPercept:
         text_feats = my_dense_clip.run_text(texts)
         # Clean the GPU memory
         if self.lazy_loading:
-            del my_dense_clipobservations
+            del my_dense_clip
             torch.cuda.empty_cache()
         return text_feats.numpy()

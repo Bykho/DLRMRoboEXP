@@ -1,19 +1,28 @@
 {
     "data_path": "assets",
     "robot_conf": {
-        "urdf_path": "robot/simple_arm/simple_arm.urdf",
-        "srdf_path": "robot/simple_arm/simple_arm.srdf",
+        "urdf_path": "robot/jaco2/jaco2.urdf",
+        "srdf_path": "robot/jaco2/jaco2.srdf",
         "init_pos": [0, 0, 0],
         "init_rot": [1, 0, 0, 0],
         "init_qpos": [0, 0]
     },
     "objects_conf": [
         {
-            "name": "table",
-            "urdf_path": "objects/table.urdf",
-            "init_pos": [0.7, 0, 0.4],
-            "init_rot": [1, 0, 0, 0],
-            "fix_root_link": true
-        }
+            "model_path": "objects/cabinet2/mobility.urdf",
+            "init_pose": [0, 0, 0, 1, 0, 0, 0],
+            "label": "cabinet",
+            "is_root": true
+          },
+          {
+            "model_path": "objects/table.urdf",
+            "init_pose": [0.3, 0.1, 0.05, 1, 0, 0, 0],
+            "label": "table"
+          },
+          {
+            "model_path": "objects/glasses/mobility.urdf",
+            "init_pose": [0.3, 0.1, 0.05, 1, 0, 0, 0],
+            "label": "glasses"
+          }
     ]
-} 
+}

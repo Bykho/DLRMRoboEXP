@@ -113,20 +113,21 @@ class RoboAct:
                     observations = {}
                     for i, camera_pose in enumerate(self.camera_poses):
                         new_q = mat2quat(camera_pose[:3, :3] @ rotation_mat)
+                        pose = np.concatenate([
+                            camera_pose[:3, 3],
+                            new_q,
+                        ])
+                        # Validate pose before moving
+                        is_valid, message = self.robo_exp._validate_target_pose(pose)
+                        if not is_valid:
+                            print(f"[WARNING] Skipping camera pose {i}: {message}")
+                            continue
                         self.robo_exp.run_action(
                             action_code=1,
                             iteration=self.base_iter,
-                            action_parameters=np.concatenate(
-                                [
-                                    camera_pose[:3, 3],
-                                    new_q,
-                                ]
-                            ),
-                            for_camera=True,
+                            action_parameters=pose,
                         )
-                        observation = self.robo_exp.get_observations(wrist_only=True)[
-                            "wrist"
-                        ]
+                        observation = self.robo_exp.get_observations(wrist_only=True)["wrist"]
                         observations[f"wrist_{i}"] = observation
                     self.robo_exp.run_action(
                         action_code=4, iteration=self.base_iter / 2
@@ -244,7 +245,6 @@ class RoboAct:
                             wrist_rotation,
                         ]
                     ),
-                    for_camera=True,
                     speed=100,
                 )
 
@@ -663,7 +663,6 @@ class RoboAct:
                     wrist_rotation,
                 ]
             ),
-            for_camera=True,
             speed=80,
         )
 

@@ -146,12 +146,19 @@ class MyDenseClip:
             # One phrase can potentially contain multiple labels, pick the label with the max probability
             label_confs = phrase.split(" ")
             max_confidence = 0
+            potential_label = None
             for label_conf in label_confs:
-                label, confidence = tuple(label_conf.split(":"))
-                confidence = float(confidence)
+                parts = label_conf.split(":")
+                if len(parts) == 2:
+                    label, conf = parts
+                    confidence = float(conf)
+                else:
+                    label = parts[0]
+                    confidence = 1.0  # Default confidence when not specified
                 if confidence > max_confidence:
                     potential_label = label
                     max_confidence = confidence
+            if potential_label is not None:  # Only append if we found a valid label
             labels.append(potential_label)
             confidences.append(max_confidence)
         return labels, confidences
