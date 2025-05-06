@@ -55,12 +55,13 @@ robot = loader.load("/home/nb3227/RoboEXP/assets/robot/simple_arm/jaco2/jaco2.ur
 robot.set_root_pose(sapien.Pose([0.1, 0, 0], [1, 0, 0, 0]))
 robot.set_qpos([4.71, 2.84, 0, 1.2, 4.62, 4.48, 4.88, 0, 0, 0, 0, 0, 0])
 
-# Load cabinet (larger scale)
+# Load cabinet (larger scale) and place it on the table
 cabinet_loader = scene.create_urdf_loader()
 cabinet_loader.fix_root_link = True
 cabinet_loader.scale = 0.3
 cabinet = cabinet_loader.load(os.path.join(repo_root, "assets/objects/cabinet_door/mobility.urdf"))
-cabinet.set_root_pose(sapien.Pose([0.8, 0.0, 0.0], [1, 0, 0, 0]))  # Moved further back
+# Set cabinet on the table - table height is around 0.05, so we position cabinet at that height
+cabinet.set_root_pose(sapien.Pose([0.8, 0.1, 0.18], [1, 0, 0, 0]))  # Positioned on top of table
 
 # Get information about cabinet joints
 num_joints = cabinet.dof
@@ -83,7 +84,7 @@ stapler_loader.fix_root_link = True
 stapler_loader.scale = 0.03
 stapler = stapler_loader.load(os.path.join(repo_root, "assets/objects/stapler/mobility.urdf"))
 # Position stapler inside the visible part of the open cabinet
-stapler.set_root_pose(sapien.Pose([0.75, 0.0, 0.15], [1, 0, 0, 0]))
+stapler.set_root_pose(sapien.Pose([0.75, 0.0, 0.09], [1, 0, 0, 0]))
 
 # Stabilize scene
 for _ in range(20):
