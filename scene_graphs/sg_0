@@ -1,0 +1,11 @@
+digraph {
+	table_0 [label=table color=lightblue2 shape=egg style=filled]
+	cabinet_0 [label=cabinet color=lightblue2 shape=egg style=filled]
+	table_0 -> cabinet_0 [label=on]
+	handle_0 [label=door_handle color=lightpink shape=egg style=filled]
+	cabinet_0 -> handle_0 [label=belong]
+	open_0 [label=open color=lightsalmon shape=diamond style=filled]
+	handle_0 -> open_0
+	stapler_0 [label=stapler color=lightblue2 shape=egg style=filled]
+	open_0 -> stapler_0 [label=inside]
+}

@@ -159,6 +159,6 @@ class MyDenseClip:
                     potential_label = label
                     max_confidence = confidence
             if potential_label is not None:  # Only append if we found a valid label
-            labels.append(potential_label)
-            confidences.append(max_confidence)
+                labels.append(potential_label)
+                confidences.append(max_confidence)
         return labels, confidences
