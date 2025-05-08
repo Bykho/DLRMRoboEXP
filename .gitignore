@@ -1,0 +1,159 @@
+# Python general
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+venv310/
+ENV/
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#  Usually these files are written by a script so they will be generated
+#  each time. But they are actual source files so usually it is better to
+#  version control them.
+# *.spec
+
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+.hypothesis/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+#   For a library or application, you probably want to ignore these files since they are not
+#   necessary for shared work. If you have VIRTUAL_ENV specific files that you want to share,
+#   you should place them in .settings instead.
+.python-version
+
+# pipenv
+# According to PEEPs 508 and 582, Pipfile.lock is constructed from Pipfile and Pipfile.lock
+# should be version controlled.
+# Pipfile.lock
+
+# poetry
+# poetry.lock is not deterministic in versions before 1.0.0rc1, see
+# https://github.com/python-poetry/poetry/issues/1145
+# Once released, it is safe to version control this file
+# poetry.lock
+
+# pdm
+# pdm.lock should be version controlled as well.
+# pdm.lock
+# .pdm-python
+
+# PEP 582; __pypackages__ directory
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath files
+*.sage.py
+
+# Environments
+.env
+.venv
+ENV/
+venv/
+venv310/
+ENV/
+env/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# VSCode settings specific to workspace
+.vscode/
+
+# Output files from this project
+roboexp_output/
+
+# Resource directory with large files
+Resources/
+
+# API Keys
+my_apikey
+*.key
+*.keys 
