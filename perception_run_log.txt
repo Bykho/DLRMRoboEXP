@@ -1,0 +1,94 @@
+/models/config/GroundingDINO_SwinT_OGC.py
+/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/torch/functional.py:512: UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3587.)
+  return _VF.meshgrid(tensors, **kwargs)  # type: ignore[attr-defined]
+final text_encoder_type: bert-base-uncased
+Initializing SAM
+  Attempting to load SAM model from: /mnt/newspace/DLRM/fp/Dependencies/RoboEXP/pretrained_models/sam_hq_vit_b.safetensors
+  Loading SAM model type 'vit_b' structure and then weights from .safetensors file.
+SAM initialized with build_sam.
+GroundingSegment Initialized
+RoboEXP Initialized Successfully.
+
+==============================
+CONTROLS (SAPIEN window must be active):
+  Camera: WASDQE + Mouse Drag
+  Robot EE:
+    i/k: Forward/Backward (+/-X)
+    j/l: Left/Right      (+/-Y)
+    u/o: Up/Down         (+/-Z)
+    r/f: Roll            (+/-)
+    t/g: Pitch           (+/-)
+    y/h: Yaw             (+/-)
+  Gripper:
+    7:   Close Gripper
+    8:   Open Gripper
+  Perception:
+    ENTER: Run Perception & Update Scene Graph
+  Quit: Close the SAPIEN viewer window
+==============================
+
+/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/gymnasium/core.py:311: UserWarning: WARN: env.render_human to get variables from other wrappers is deprecated and will be removed in v1.0, to get this variable you can do `env.unwrapped.render_human` for environment variables or `env.get_wrapper_attr('render_human')` that will search the reminding wrappers.
+  logger.warn(
+/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/gymnasium/core.py:311: UserWarning: WARN: env.viewer to get variables from other wrappers is deprecated and will be removed in v1.0, to get this variable you can do `env.unwrapped.viewer` for environment variables or `env.get_wrapper_attr('viewer')` that will search the reminding wrappers.
+  logger.warn(
+/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/gymnasium/core.py:311: UserWarning: WARN: env.device to get variables from other wrappers is deprecated and will be removed in v1.0, to get this variable you can do `env.unwrapped.device` for environment variables or `env.get_wrapper_attr('device')` that will search the reminding wrappers.
+  logger.warn(
+
+[Enter Pressed] - Running Perception and Scene Graph Update...
+  Capturing current observation data...
+  DEBUG: obs['agent'] keys: ['qpos', 'qvel']
+/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/gymnasium/core.py:311: UserWarning: WARN: env.agent to get variables from other wrappers is deprecated and will be removed in v1.0, to get this variable you can do `env.unwrapped.agent` for environment variables or `env.get_wrapper_attr('agent')` that will search the reminding wrappers.
+  logger.warn(
+  DEBUG: obs['agent'] keys: ['qpos', 'qvel']
+  Data shapes: RGB=(128, 128, 3), Depth=(128, 128)
+  Base Pose Pos: tensor([[0., 0., 0., 1.]])
+  EE Pose Pos: tensor([[0., 0., 0., 1.]])
+  Running RoboPercept...
+/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/transformers/modeling_utils.py:1575: FutureWarning: The `device` argument is deprecated and will be removed in v5 of Transformers.
+  warnings.warn(
+/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/torch/utils/checkpoint.py:464: UserWarning: torch.utils.checkpoint: the use_reentrant parameter should be passed explicitly. In version 2.4 we will raise an exception if use_reentrant is not passed. use_reentrant=False is recommended, but if you need to preserve the current default behavior, you can pass use_reentrant=True. Refer to docs for more details on the differences between the two variants.
+  warnings.warn(
+/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/torch/utils/checkpoint.py:91: UserWarning: None of the inputs have requires_grad=True. Gradients will be None
+  warnings.warn(
+  Error during RoboEXP processing: CUDA out of memory. Tried to allocate 768.00 MiB. GPU 
+Traceback (most recent call last):
+  File "/mnt/newspace/DLRM/fp/interactive_wristcam_viewer.py", line 277, in main
+    attributes = local_robo_percept.get_attributes_from_observations({"hand_camera": roboexp_obs_dict})
+  File "/mnt/newspace/DLRM/fp/Dependencies/RoboEXP/roboexp/perception/robo_percept.py", line 30, in get_attributes_from_observations
+    pred_boxes, pred_phrases, pred_masks = self.get_grounding_masks(
+  File "/mnt/newspace/DLRM/fp/Dependencies/RoboEXP/roboexp/perception/robo_percept.py", line 60, in get_grounding_masks
+    pred_boxes, pred_phrases, pred_masks = my_grounding_sam.run(
+  File "/mnt/newspace/DLRM/fp/Dependencies/RoboEXP/roboexp/perception/models/grounding_segment.py", line 76, in run
+    masks = self.my_sam.run(img, boxes=boxes_filt).squeeze(1)
+  File "/mnt/newspace/DLRM/fp/Dependencies/RoboEXP/roboexp/perception/models/sam.py", line 128, in run
+    return self._run_predictor(img, boxes)
+  File "/mnt/newspace/DLRM/fp/Dependencies/RoboEXP/roboexp/perception/models/sam.py", line 137, in _run_predictor
+    self.predictor.set_image(img)
+  File "/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/segment_anything/predictor.py", line 62, in set_image
+    self.set_torch_image(input_image_torch, image.shape[:2])
+  File "/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 115, in decorate_context
+    return func(*args, **kwargs)
+  File "/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/segment_anything/predictor.py", line 91, in set_torch_image
+    self.features, self.interm_features = self.model.image_encoder(input_image)
+  File "/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1532, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1541, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/segment_anything/modeling/image_encoder.py", line 113, in forward
+    x = blk(x)
+  File "/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1532, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1541, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/segment_anything/modeling/image_encoder.py", line 177, in forward
+    x = self.attn(x)
+  File "/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1532, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1541, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/segment_anything/modeling/image_encoder.py", line 237, in forward
+    attn = add_decomposed_rel_pos(attn, q, self.rel_pos_h, self.rel_pos_w, (H, W), (H, W))
+  File "/mnt/newspace/DLRM/fp/venv310/lib/python3.10/site-packages/segment_anything/modeling/image_encoder.py", line 361, in add_decomposed_rel_pos
+    attn.view(B, q_h, q_w, k_h, k_w) + rel_h[:, :, :, :, None] + rel_w[:, :, :, None, :]
+torch.cuda.OutOfMemoryError: CUDA out of memory. Tried to allocate 768.00 MiB. GPU 
+Perception complete. 

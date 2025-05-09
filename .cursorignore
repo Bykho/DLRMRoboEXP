@@ -1,4 +1,5 @@
 Dependencies/SAPIEN/build
 Dependencies/SAPIEN/3rd_party
 venv310
+!venv310/lib/python3.10/site-packages/segment_anything/modeling/mask_decoder.py
 Dependencies/SAPIEN/examples
