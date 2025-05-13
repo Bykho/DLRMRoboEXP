@@ -646,4 +646,4 @@ class InteractiveViewer:
 if __name__ == "__main__":
     viewer = InteractiveViewer()
     viewer.main() # Call main on the instance 
-    
+ 
